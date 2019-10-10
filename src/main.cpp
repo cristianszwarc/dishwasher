@@ -24,6 +24,7 @@
 #define DRAIN_ISSUE 2
 #define FAILED_LOAD_ISSUE 3
 #define FAILED_TOP_UP_ISSUE 4
+#define FAILED_REACH_TEMP 5
 
 // Message codes
 #define WELCOME_MSG 2
@@ -33,6 +34,7 @@
 // Times
 #define DRAIN_TIME 22000
 #define LOAD_TIMEOUT 180000
+#define HEATER_TIMEOUT 600000
 
 // Modes
  #define RELAY_MODULE_OFF HIGH
@@ -213,15 +215,23 @@ void cycle(unsigned long int  washTime, bool soap = false, long int temperature 
     delay(1000); // stabilise
   }
   
+  unsigned long int cycleStarts = millis();
   unsigned long int washStarts = millis();
   while((washTime * 60 * 1000) >  millis() - washStarts) {
     // Turn off the heater once desired temperature is reached.
-    Vo = analogRead(TEMP_SENSOR);
     if (Vo > temperature) {
       digitalWrite(HEATER_PIN, LOW);
     } else {
+      Vo = analogRead(TEMP_SENSOR);
+
+      if (Vo < temperature && (millis() - cycleStarts) > HEATER_TIMEOUT) {
+        crash(FAILED_REACH_TEMP);
+      } 
+
+      washStarts = millis(); // reset start time until temperature is reached
       beep(1); // indicate is heating
     }
+    
     
     delay(1000);
     digitalWrite(LED_PIN, LED_ON);
@@ -278,9 +288,9 @@ void loop() {
     cycle(5, false, 0);
   } else {
     // regular wash program
-    cycle(5, false, 900); // temperature is defined by the reading of a thermistor, no fancy centigrades conversion here
-    cycle(22, true, 950);
-    cycle(3, false, 850);
+    cycle(3, false, 950); // temperature is defined by the reading of a thermistor, no fancy centigrades conversion here
+    cycle(15, true, 950);
+    cycle(3, false, 950);
     cycle(3, false, 0);
   }
   
