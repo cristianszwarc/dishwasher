@@ -33,7 +33,7 @@
 
 // Times
 #define DRAIN_TIME 22000
-#define LOAD_TIMEOUT 180000
+#define LOAD_TIMEOUT 200000
 #define HEATER_TIMEOUT 600000
 
 // Modes
@@ -95,7 +95,14 @@ void crash(int issue) {
 
 // Check if minimum water level has been reached.
 bool isLoaded() {
-  return !digitalRead(WATER_DISABLED_PIN); // WATER_DISABLED_PIN pin is high when there is no water.
+  // test if is loaded for 10 milliseconds
+  for (int i = 0; i < 10; i++) {
+    if (digitalRead(WATER_DISABLED_PIN)) { // WATER_DISABLED_PIN pin is high when there is no water.
+      return false; // if is not loaded at any time, return
+    }
+    delay(1);
+  }
+  return true;  // we had the same result for 10 milliseconds, it's fair to say we have water.
 }
 
 // Check if main switch is pressed.
@@ -133,7 +140,7 @@ void load() {
   
   // Wait until water reaches base level or timeout.
   while(!isLoaded() && millis() - loadStarts < LOAD_TIMEOUT) {
-    delay(200);
+    delay(10);
   }
   
   // Timed out but there is no water?, crash with failed to load error.
@@ -173,13 +180,6 @@ void load() {
   while (!isLoaded() && millis() - loadStarts < (loadTime * 1.5)) { // don't allow it to run more than one and a half extra load time
     beep(1, 50);
     delay(400);
-  }
-  
-  // Once isLoaded(), load a little bit more to be sure isLoaded() becomes stable in case it was not.
-  loadStarts = millis();
-  while (millis() - loadStarts < (loadTime / 10)) {  // run for a 10th the load time
-    beep(1, 20);
-    delay(200);
   }
   
   // We should have plenty of water by now.
