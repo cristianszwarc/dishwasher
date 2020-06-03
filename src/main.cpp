@@ -23,7 +23,7 @@
 #define GENERIC_ISSUE 1
 #define DRAIN_ISSUE 2
 #define FAILED_LOAD_ISSUE 3
-#define FAILED_TOP_UP_ISSUE 4
+#define TEMP_SENSOR_ISSUE 4
 #define FAILED_REACH_TEMP 5
 
 // Message codes
@@ -166,27 +166,16 @@ void load() {
   digitalWrite(MAIN_PUMP_PIN, RELAY_MODULE_ON);
 
   // Main pump will move the water up the pipes causing a drop in level, isLoaded() will be unstable and can't be trusted. 
-  // To ensure we get closer to 3 times the base level, we continue the load not checking isLoaded() for a 2/3 of loadTime.
+  // To ensure we get enough water, we continue the load until we see isLoaded() stable for at least 1/4 of the base time.
   loadStarts = millis();
-  while (millis() - loadStarts < (loadTime / 1.5)) {  // run for 2/3 the load time
+  while (millis() - loadStarts < (loadTime / 4)) {
     beep(2, 50);
     delay(800);
-  }
-  
-  // At this point we are pretty sure we have enough water (2.66 loadTime).
-  // We can now safely stop the loading process as soon isLoaded() reports true.
-  // A fixed timeout of 1.5 loadTime is in place in case water level is not reached.
-  loadStarts = millis();
-  while (!isLoaded() && millis() - loadStarts < (loadTime * 1.5)) { // don't allow it to run more than one and a half extra load time
-    beep(1, 50);
-    delay(400);
-  }
-  
-  // We should have plenty of water by now.
-  // isLoaded() indicates the 12v line is available. Outside software, is used to switch the heater relay On.
-  // Without a stable isLoaded() we would not be able to use the heater, crash.
-  if (!isLoaded()) {
-    crash(FAILED_TOP_UP_ISSUE);
+
+    // no water at this moment? reset the timer
+    if (!isLoaded()) {
+      loadStarts = millis();
+    }
   }
   
   // Loading done.
@@ -269,6 +258,10 @@ void setup() {
     drain();
   }
 
+  if (analogRead(TEMP_SENSOR) < 500) {
+    crash(TEMP_SENSOR_ISSUE);
+  }
+  
   // Welcome beeps
   beepMessage(WELCOME_MSG);
 }
@@ -288,7 +281,7 @@ void loop() {
     cycle(5, false, 0);
   } else {
     // regular wash program
-    cycle(3, false, 950); // temperature is defined by the reading of a thermistor, no fancy centigrades conversion here
+    cycle(3, false, 850); // temperature is defined by the reading of a thermistor, no fancy centigrades conversion here
     cycle(15, true, 950);
     cycle(3, false, 950);
     cycle(3, false, 0);
