@@ -116,14 +116,13 @@ void drain() {
   digitalWrite(DRAIN_PIN, RELAY_MODULE_ON);
   beepMessage(DRAIN_MSG);  
 
-  // allow up to 50% of extra margin if   
   unsigned long int drainStarts = millis();
   while(isLoaded() && millis() - drainStarts < DRAIN_TIMEOUT) {
     delay(1000);
     beep(1, 300, 200); // indicate is draining      
   }
 
-  delay(10000); // some fix extra time after low level is reached
+  delay(10000); // some fixed extra time after low level is reached
   digitalWrite(DRAIN_PIN, RELAY_MODULE_OFF);
   
   // Water still available?, something is not ok, crash.
@@ -220,33 +219,14 @@ void cycle(unsigned long int  washTime, bool soap = false, long int temperature 
     } else {
       Vo = analogRead(TEMP_SENSOR);
 
-      // if (Vo < temperature && (millis() - cycleStarts) > HEATER_TIMEOUT) {
-      //   crash(FAILED_REACH_TEMP);
-      // } 
-
       washStarts = millis(); // reset start time until temperature is reached
       delay(2000);
       beep(1, 300, 200); // indicate is heating      
 
     }
     
-    
     delay(2000);
     digitalWrite(LED_PIN, LED_ON);
-    
-    if (Vo < 800) {
-      beep(2, 100, 100);
-    } else if (Vo < 850) {
-      beep(3, 100, 100);
-    } else if (Vo < 900) {
-      beep(4, 100, 100);
-    } else if (Vo < 950) {
-      beep(5, 100, 100);
-    } else if (Vo < 1000) {
-      beep(6, 100, 100);
-    } else if (Vo < 1050) {
-      beep(7, 100, 100);
-    }
     
     // delay(1000);
     digitalWrite(LED_PIN, LED_OFF);
