@@ -32,9 +32,9 @@
 #define DRAIN_MSG 4
 
 // Times
-#define DRAIN_TIME 22000
+#define DRAIN_TIMEOUT 50000
 #define LOAD_TIMEOUT 200000
-#define HEATER_TIMEOUT 600000
+#define HEATER_TIMEOUT 400000
 
 // Modes
  #define RELAY_MODULE_OFF HIGH
@@ -110,14 +110,20 @@ bool switchPressed() {
   return !digitalRead(SWITCH_PIN);
 }
 
-// Drain water by activating the drain pump for the defined DRAIN_TIME.
+// Drain water by activating the drain pump for the defined until low level is reached + 10 seconds.
 void drain() {
   reset(1000); // a working main pump keeps the water level down, reset() will turn the main pump off last so we can start the drain process any flooding.
   digitalWrite(DRAIN_PIN, RELAY_MODULE_ON);
+  beepMessage(DRAIN_MSG);  
 
-  beepMessage(DRAIN_MSG);
-  delay(DRAIN_TIME);
+  // allow up to 50% of extra margin if   
+  unsigned long int drainStarts = millis();
+  while(isLoaded() && millis() - drainStarts < DRAIN_TIMEOUT) {
+    delay(1000);
+    beep(1, 300, 200); // indicate is draining      
+  }
 
+  delay(10000); // some fix extra time after low level is reached
   digitalWrite(DRAIN_PIN, RELAY_MODULE_OFF);
   
   // Water still available?, something is not ok, crash.
@@ -188,6 +194,7 @@ void load() {
 void cycle(unsigned long int  washTime, bool soap = false, long int temperature = 0) {
   int Vo;
   load();
+  delay(2000); // stabilise
   
   if (soap) {
     digitalWrite(SOAP_PIN, RELAY_MODULE_ON);
@@ -208,23 +215,40 @@ void cycle(unsigned long int  washTime, bool soap = false, long int temperature 
   unsigned long int washStarts = millis();
   while((washTime * 60 * 1000) >  millis() - washStarts) {
     // Turn off the heater once desired temperature is reached.
-    if (Vo > temperature) {
+    if (Vo > temperature || (millis() - cycleStarts) > HEATER_TIMEOUT) { // OR
       digitalWrite(HEATER_PIN, LOW);
     } else {
       Vo = analogRead(TEMP_SENSOR);
 
-      if (Vo < temperature && (millis() - cycleStarts) > HEATER_TIMEOUT) {
-        crash(FAILED_REACH_TEMP);
-      } 
+      // if (Vo < temperature && (millis() - cycleStarts) > HEATER_TIMEOUT) {
+      //   crash(FAILED_REACH_TEMP);
+      // } 
 
       washStarts = millis(); // reset start time until temperature is reached
-      beep(1); // indicate is heating
+      delay(2000);
+      beep(1, 300, 200); // indicate is heating      
+
     }
     
     
-    delay(1000);
+    delay(2000);
     digitalWrite(LED_PIN, LED_ON);
-    delay(1000);
+    
+    if (Vo < 800) {
+      beep(2, 100, 100);
+    } else if (Vo < 850) {
+      beep(3, 100, 100);
+    } else if (Vo < 900) {
+      beep(4, 100, 100);
+    } else if (Vo < 950) {
+      beep(5, 100, 100);
+    } else if (Vo < 1000) {
+      beep(6, 100, 100);
+    } else if (Vo < 1050) {
+      beep(7, 100, 100);
+    }
+    
+    // delay(1000);
     digitalWrite(LED_PIN, LED_OFF);
   }
 
@@ -281,9 +305,9 @@ void loop() {
     cycle(5, false, 0);
   } else {
     // regular wash program
-    cycle(3, false, 850); // temperature is defined by the reading of a thermistor, no fancy centigrades conversion here
-    cycle(15, true, 950);
-    cycle(3, false, 950);
+    cycle(3, false, 910); // temperature is defined by the reading of a thermistor, no fancy centigrades conversion here
+    cycle(12, true, 910);
+    cycle(3, false, 910);
     cycle(3, false, 0);
   }
   
